@@ -1,0 +1,48 @@
+
+ETL pipeline that extracts raw order-management data from `shopdata.db`, cleans it, and loads a clean
+analytical model for Customer Lifetime Value (CLV) reporting.
+
+
+## Part 1 
+
+`exploration.sql` contains standalone diagnostic queries (tagged `[C1]`–`[C3]` for customers, `[O1]`–`[O4]`
+for orders). Each query's header comment states what it finds and why it matters for the cleaning stage.
+
+Run it against the source database:
+
+```bash
+sqlite3 shopdata.db < exploration.sql
+```
+
+### Data quality findings
+
+Source is 12 customer rows (10 distinct customers), 20 orders, 15 daily exchange rates (EUR/GBP/JPY only).
+
+**Customers (`vw_raw_customers`)**
+
+1. **Duplicate customers** `[C1]` — `customer_id` 1 (Alice) and 2 (Bob) each appear twice with different
+   emails/phones and signup dates. → Dedup on `customer_id`, keeping the **most recent `signup_date`**.
+2. **Missing contact info** `[C2]` — NULL `email` for customers 2 (older row) and 8; NULL `phone` for
+   customers 5 and 8. → Default missing email to `unknown@domain.com`.
+3. **Inconsistent phone formatting** `[C3]` — 8 rows use mixed formats: `+1 (555) 123-4567`,
+   `(555) 333 4444`, `+44 20 7123 1234`, and even alphabetic values like `Ext 444` and `1-800-555-DINO`.
+   → Strip to digits; note a plain punctuation-strip leaves the letters in `DINO`, so **non-digits (incl.
+   letters) must be removed**.
+
+**Orders (`vw_raw_orders`)**
+
+4. **Non-positive amounts** `[O1]` — orders 103 (−50) and 113 (−100) are `SYSTEM_ERROR`, and order 114 is
+   `0.0` despite status `COMPLETED`. → Filter out `total_amount <= 0`.
+5. **Missing currency** `[O2]` — orders 107 and 116 have NULL `currency`. → Treat NULL currency as `USD`.
+6. **Missing exchange rates** `[O3]` — 6 non-USD orders (110, 111, 113, 115, 118, 120) have **no rate for
+   their exact `(currency, order_date)`**. A naïve inner join to the rates view would silently drop them.
+   → Needs a fallback (nearest prior rate, or treat as USD per the assignment's default).
+7. **Orphan orders** `[O4]` — orders 106 and 118 reference `customer_id = 99`, which does not exist in the
+   customers view. → Flag for the CLV join (these will have no matching customer dimension row).
+
+## Repository layout
+
+| File | Purpose |
+|------|---------|
+| `exploration.sql` | Part 1 — data-quality diagnostic queries |
+| `shopdata.db` | Provided source database (read-only views) |
