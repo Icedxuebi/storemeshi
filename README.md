@@ -40,9 +40,36 @@ Source is 12 customer rows (10 distinct customers), 20 orders, 15 daily exchange
 7. **Orphan orders** `[O4]` — orders 106 and 118 reference `customer_id = 99`, which does not exist in the
    customers view. → Flag for the CLV join (these will have no matching customer dimension row).
 
+## Part 2 — Pipeline
+
+`pipeline.py` is a Prefect flow that runs the ETL: it extracts the three views, applies the cleaning
+rules, and loads `dim_customers` + `fct_orders` into a new `analytics.db` (falling back to
+`clean_customers.csv` / `clean_orders.csv` if the database cannot be written).
+
+Install dependencies and run the flow:
+
+```bash
+pip install -r requirements.txt
+python pipeline.py
+```
+
+Cleaning rules applied:
+
+- **Customers** — deduplicate on `customer_id` keeping the most recent `signup_date`; strip `phone` to
+  digits only; default missing `email` to `unknown@domain.com`.
+- **Orders** — drop rows with `total_amount <= 0`; add `usd_amount` by joining `vw_exchange_rates` on
+  `(currency, order_date)`, treating a missing currency or missing rate as USD (rate 1).
+
+On the provided data this yields **10 customers** (from 12 rows) and **17 orders** (from 20; 3 dropped).
+Transformation logic lives in plain, DB-free functions so it can be unit-tested with dummy DataFrames
+(Part 3).
+
 ## Repository layout
 
 | File | Purpose |
 |------|---------|
 | `exploration.sql` | Part 1 — data-quality diagnostic queries |
+| `pipeline.py` | Part 2 — Prefect ETL flow (extract / transform / load) |
+| `requirements.txt` | Python dependencies |
 | `shopdata.db` | Provided source database (read-only views) |
+| `analytics.db` | Generated output (`dim_customers`, `fct_orders`) |
