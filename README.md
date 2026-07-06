@@ -76,6 +76,17 @@ pip install -r requirements.txt
 pytest
 ```
 
+## Part 4 — CLV report
+
+`clv_report.sql` runs against the cleaned `analytics.db` and returns one row per customer — `customer_id`,
+`full_name`, `total_orders_placed`, `lifetime_value_usd`, and `customer_cohort` (signup month) — ranked by
+lifetime value descending. Run it once the pipeline has produced `analytics.db`:
+
+```bash
+sqlite3 analytics.db < clv_report.sql
+```
+
+
 ## Repository layout
 
 | File | Purpose |
@@ -83,6 +94,7 @@ pytest
 | `exploration.sql` | Part 1 — data-quality diagnostic queries |
 | `pipeline.py` | Part 2 — Prefect ETL flow (extract / transform / load) |
 | `test_pipeline.py` | Part 3 — unit tests for the transformation logic |
+| `clv_report.sql` | Part 4 — CLV query against `analytics.db` |
 | `requirements.txt` | Python dependencies |
 | `shopdata.db` | Provided source database (read-only views) |
 | `analytics.db` | Generated output (`dim_customers`, `fct_orders`) |
