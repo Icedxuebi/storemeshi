@@ -64,12 +64,25 @@ On the provided data this yields **10 customers** (from 12 rows) and **17 orders
 Transformation logic lives in plain, DB-free functions so it can be unit-tested with dummy DataFrames
 (Part 3).
 
+## Part 3 — Tests
+
+`test_pipeline.py` unit-tests the pure transformation functions with dummy DataFrames / scalars only —
+no database and no Prefect run context — so the business rules are validated in isolation. It covers the
+phone standardizer, currency conversion (matching rate, right-date selection, USD/missing-rate/null-currency
+fallback, rounding, and no-rows-dropped), invalid-order filtering, and the customer dedup / email-fill rules.
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
 ## Repository layout
 
 | File | Purpose |
 |------|---------|
 | `exploration.sql` | Part 1 — data-quality diagnostic queries |
 | `pipeline.py` | Part 2 — Prefect ETL flow (extract / transform / load) |
+| `test_pipeline.py` | Part 3 — unit tests for the transformation logic |
 | `requirements.txt` | Python dependencies |
 | `shopdata.db` | Provided source database (read-only views) |
 | `analytics.db` | Generated output (`dim_customers`, `fct_orders`) |
